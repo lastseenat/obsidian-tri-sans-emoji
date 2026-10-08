@@ -9,6 +9,33 @@ const compareNames = (a, b) => collator.compare(key(a), key(b)) || collator.comp
 module.exports = class TriSansEmoji extends Plugin {
   onload() {
     this.app.workspace.onLayoutReady(() => this.patch());
+    this.addNoteCountToVaultTooltip();
+  }
+
+  // Infobulle du nom du coffre : « 748 fichiers, 30 dossiers » → « 748 fichiers (492 notes), 30 dossiers »
+  addNoteCountToVaultTooltip() {
+    let hovering = false;
+    this.registerDomEvent(document, "mouseover", (evt) => {
+      hovering = !!evt.target.closest?.(".workspace-drawer-vault-switcher");
+    });
+    const observer = new MutationObserver((mutations) => {
+      if (!hovering) return;
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType !== 1 || !node.classList.contains("tooltip")) continue;
+          const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+          let text = null;
+          while (!text && walker.nextNode()) {
+            if (/\d+ (fichiers?|files?)/.test(walker.currentNode.textContent)) text = walker.currentNode;
+          }
+          if (!text || text.textContent.includes(" notes)")) continue;
+          const count = this.app.vault.getMarkdownFiles().length;
+          text.textContent = text.textContent.replace(/(\d+ (?:fichiers?|files?))/, `$1 (${count} notes)`);
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true });
+    this.register(() => observer.disconnect());
   }
 
   onunload() {

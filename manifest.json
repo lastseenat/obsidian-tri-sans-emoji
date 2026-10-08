@@ -1,9 +1,9 @@
 {
   "id": "tri-sans-emoji",
   "name": "Tri sans emoji",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minAppVersion": "1.0.0",
-  "description": "Trie l'explorateur de fichiers par ordre alphabétique en ignorant les emojis en début de nom.",
+  "description": "Trie l'explorateur en ignorant les emojis en début de nom et affiche le nombre de notes dans l'infobulle du coffre.",
   "author": "LiNkE",
   "isDesktopOnly": false
 }
