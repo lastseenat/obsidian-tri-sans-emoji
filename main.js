@@ -39,7 +39,8 @@ module.exports = class TriSansEmoji extends Plugin {
   }
 
   onunload() {
-    if (this.proto && this.original) {
+    // Ne restaure que si le tri en place est bien le nôtre
+    if (this.proto && this.proto.getSortedFolderItems === this.patched) {
       this.proto.getSortedFolderItems = this.original;
       this.resort();
     }
@@ -49,10 +50,23 @@ module.exports = class TriSansEmoji extends Plugin {
     return this.app.workspace.getLeavesOfType("file-explorer").map((leaf) => leaf.view);
   }
 
-  patch() {
-    const view = this.explorers()[0];
-    if (!view || typeof view.getSortedFolderItems !== "function") {
-      console.warn("[tri-sans-emoji] Explorateur de fichiers introuvable ou API modifiée");
+  // L'explorateur peut être « différé » au démarrage (onglet non affiché, barre repliée) :
+  // sa vraie vue n'existe pas encore, il faut la charger avant de pouvoir modifier son tri
+  async patch() {
+    if (this.patched) return;
+    const leaf = this.app.workspace.getLeavesOfType("file-explorer")[0];
+    if (!leaf) {
+      // Explorateur fermé : on réessaie quand il revient
+      if (!this.waiting) {
+        this.waiting = true;
+        this.registerEvent(this.app.workspace.on("layout-change", () => this.patch()));
+      }
+      return;
+    }
+    if (typeof leaf.loadIfDeferred === "function") await leaf.loadIfDeferred();
+    const view = leaf.view;
+    if (this.patched || !view || typeof view.getSortedFolderItems !== "function") {
+      if (!this.patched) console.warn("[tri-sans-emoji] Explorateur de fichiers introuvable ou API modifiée");
       return;
     }
     const proto = Object.getPrototypeOf(view);
@@ -60,7 +74,7 @@ module.exports = class TriSansEmoji extends Plugin {
     this.proto = proto;
     this.original = original;
 
-    proto.getSortedFolderItems = function (folder) {
+    this.patched = proto.getSortedFolderItems = function (folder) {
       const items = original.call(this, folder);
       const order = this.sortOrder;
       const alpha = order === "alphabetical" || order === "alphabeticalReverse";
