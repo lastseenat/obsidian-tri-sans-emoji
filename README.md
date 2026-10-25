@@ -2,6 +2,8 @@
 
 Trie l'explorateur de fichiers par ordre alphabétique en ignorant les emojis en début de nom : « 🫀 Cardiologie » est rangé à C.
 
+En tri alphabétique, un dossier qui a une folder note se range parmi les notes, à sa place alphabétique ; les dossiers sans folder note restent en tête.
+
 Le tri par date d'Obsidian reste inchangé.
 
 ## Installation avec BRAT

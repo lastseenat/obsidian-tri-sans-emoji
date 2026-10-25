@@ -1,10 +1,13 @@
-const { Plugin, TFolder } = require("obsidian");
+const { Plugin, TFile, TFolder } = require("obsidian");
 
 const collator = new Intl.Collator("fr", { numeric: true, sensitivity: "base" });
 
 // "🫀 Cardiologie" → "Cardiologie" : on saute tout ce qui n'est ni lettre ni chiffre en tête
 const key = (name) => name.replace(/^[^\p{L}\p{N}]+/u, "") || name;
 const compareNames = (a, b) => collator.compare(key(a), key(b)) || collator.compare(a, b);
+// Folder note du module Folder notes : note du même nom rangée dans le dossier
+const hasFolderNote = (folder) =>
+  folder.children.some((c) => c instanceof TFile && c.extension === "md" && c.basename === folder.name);
 
 module.exports = class TriSansEmoji extends Plugin {
   onload() {
@@ -79,14 +82,21 @@ module.exports = class TriSansEmoji extends Plugin {
       const order = this.sortOrder;
       const alpha = order === "alphabetical" || order === "alphabeticalReverse";
       const dir = order === "alphabeticalReverse" ? -1 : 1;
-      // Comme Obsidian : dossiers d'abord, toujours de A à Z ; fichiers selon l'ordre choisi
-      // (tri par date conservé tel quel, le tri est stable)
+      // Dossiers simples d'abord, toujours de A à Z. En tri alphabétique, un dossier avec
+      // folder note (« Dossier/Dossier.md ») se range parmi les notes, comme une note.
+      // En tri par date : ordre d'Obsidian conservé pour les fichiers (le tri est stable)
+      const top = (f) => f instanceof TFolder && !(alpha && hasFolderNote(f));
+      const label = (f) => (f instanceof TFolder ? f.name : f.basename);
       return items.slice().sort((a, b) => {
+        const ta = top(a.file);
+        const tb = top(b.file);
+        if (ta !== tb) return ta ? -1 : 1;
+        if (ta) return compareNames(a.file.name, b.file.name);
         const fa = a.file instanceof TFolder;
         const fb = b.file instanceof TFolder;
-        if (fa !== fb) return fa ? -1 : 1;
-        if (fa) return compareNames(a.file.name, b.file.name);
-        return alpha ? dir * compareNames(a.file.name, b.file.name) : 0;
+        if (!alpha && fa !== fb) return fa ? -1 : 1;
+        if (!alpha) return fa ? compareNames(a.file.name, b.file.name) : 0;
+        return dir * compareNames(label(a.file), label(b.file));
       });
     };
     this.resort();
